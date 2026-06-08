@@ -2,8 +2,9 @@ name: Build APK
 
 on:
   push:
-    branches: [main]
-workflow_dispatch:
+    branches: [main, master]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,9 +13,10 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.0'
+          channel: 'stable'
       - run: flutter pub get
-      - run: flutter build apk --release
+      - run: flutter build apk --release --target-platform=android-arm64
       - uses: actions/upload-artifact@v4
         with:
-          name: saliguri-management-apk
+          name: saliguri-apk
           path: build/app/outputs/flutter-apk/app-release.apk
