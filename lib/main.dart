@@ -7,16 +7,12 @@ import 'screens/login_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // FFI Init untuk Android 14 MediaTek
   if (Platform.isAndroid) {
     try {
       sqfliteFfiInit();
-      // Gunakan NoIsolate untuk Android Go/MediaTek
       databaseFactory = databaseFactoryFfiNoIsolate;
-      debugPrint('✅ FFI Init Success (NoIsolate)');
     } catch (e, stack) {
-      debugPrint('❌ FFI Init Failed: $e');
-      debugPrint(stack.toString());
+      debugPrint('FFI Init Failed: $e');
     }
   }
   
@@ -57,7 +53,7 @@ class SaliguriApp extends StatelessWidget {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
-        cardTheme: const CardTheme(
+        cardTheme: const CardThemeData(
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
         ),
