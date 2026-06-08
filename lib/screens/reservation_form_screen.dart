@@ -383,7 +383,7 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<<GuestType>(
+            DropdownButtonFormField<GuestType>(
               value: _selectedGuestType,
               decoration: const InputDecoration(
                 labelText: 'Tipe Tamu',
