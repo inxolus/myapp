@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'dart:io';
 import 'screens/login_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // CRITICAL: Initialize FFI for Android
-  sqfliteFfiInit();
-  databaseFactory = databaseFactoryFfi;
-  
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
+  // FFI Init dengan fallback
+  if (Platform.isAndroid || Platform.isLinux) {
+    try {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      debugPrint('✅ FFI Init Success');
+    } catch (e, stack) {
+      debugPrint('❌ FFI Init Failed: $e');
+      debugPrint(stack.toString());
+    }
+  }
   
   runApp(const SaliguriApp());
 }
@@ -23,6 +27,11 @@ class SaliguriApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    
     return MaterialApp(
       title: 'Saliguri Reservation',
       debugShowCheckedModeBanner: false,
@@ -32,7 +41,6 @@ class SaliguriApp extends StatelessWidget {
           seedColor: const Color(0xFF1565C0),
           brightness: Brightness.light,
         ),
-        fontFamily: 'Roboto',
         textTheme: const TextTheme(
           displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
           titleLarge: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
