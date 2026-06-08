@@ -48,7 +48,7 @@ class SaliguriApp extends StatelessWidget {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
-        cardTheme: const CardThemeData(
+        cardTheme: const CardTheme(
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
         ),
