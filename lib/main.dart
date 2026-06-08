@@ -1,20 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'dart:io';
 import 'screens/login_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  if (Platform.isAndroid) {
-    try {
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfiNoIsolate;
-    } catch (e, stack) {
-      debugPrint('FFI Init Failed: $e');
-    }
-  }
   
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
@@ -53,7 +42,10 @@ class SaliguriApp extends StatelessWidget {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
-        // cardTheme DIHAPUS — tidak kritis untuk fungsi app
+        cardTheme: CardThemeData(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       ),
       home: const LoginScreen(),
     );

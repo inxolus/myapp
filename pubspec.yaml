@@ -1,5 +1,5 @@
-name: saliguri_app
-description: Saliguri Reservation Manager
+name: myapp
+description: "A new Flutter project."
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -9,7 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  sqflite_common_ffi: ^2.3.3
+  sqflite: ^2.3.3
   path_provider: ^2.1.2
   path: ^1.8.3
   intl: ^0.19.0
