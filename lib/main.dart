@@ -7,17 +7,23 @@ import 'screens/login_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // FFI Init dengan fallback
-  if (Platform.isAndroid || Platform.isLinux) {
+  // FFI Init untuk Android 14 MediaTek
+  if (Platform.isAndroid) {
     try {
       sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
-      debugPrint('✅ FFI Init Success');
+      // Gunakan NoIsolate untuk Android Go/MediaTek
+      databaseFactory = databaseFactoryFfiNoIsolate;
+      debugPrint('✅ FFI Init Success (NoIsolate)');
     } catch (e, stack) {
       debugPrint('❌ FFI Init Failed: $e');
       debugPrint(stack.toString());
     }
   }
+  
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
   
   runApp(const SaliguriApp());
 }
@@ -27,11 +33,6 @@ class SaliguriApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
-    
     return MaterialApp(
       title: 'Saliguri Reservation',
       debugShowCheckedModeBanner: false,
