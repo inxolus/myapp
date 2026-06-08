@@ -1,0 +1,9 @@
+service_code,service_name,category,pricing_type,unit_price,main_protein,side_dish,drink,condiments,description,status
+FOOD001,Paket Prasmanan A,CATERING,PER_PERSON,60000,2 Protein (Lauk),Sayur atau Gulai,Air Mineral,"Kerupuk, Buah, Sambal","2 lauk, sayur/gulai, sambal, kerupuk, buah, air mineral",ACTIVE
+FOOD002,Paket Prasmanan B,CATERING,PER_PERSON,45000,1 Protein (Lauk),Sayur atau Gulai,Air Mineral,"Kerupuk, Buah, Sambal","1 lauk, sayur/gulai, sambal, kerupuk, buah, air mineral",ACTIVE
+FOOD003,Paket BBQ,CATERING,PER_PERSON,60000,"Ayam Bakar, Ikan Bakar",Tempe/Tahu,Air Mineral,"Sambal, Lalapan, Kerupuk",Paket BBQ lengkap,ACTIVE
+FOOD004,Nasi Kotak,CATERING,PER_PERSON,40000,1 Protein (Lauk),Sayur atau Gulai,Air Mineral,"Kerupuk, Buah",Nasi kotak lengkap,ACTIVE
+FOOD005,Nasi Bungkus,CATERING,PER_PERSON,25000,-,-,-,-,Nasi bungkus,ACTIVE
+FOOD006,Coffee Break,CATERING,PER_PERSON,15000,-,Snack,Coffee/Tea,-,Coffee break dan snack,ACTIVE
+FOOD007,BBQ Paket Hemat,CATERING,PER_PACKAGE,250000,1 Ekor Ayam,Nasi,Air Mineral,"Sambal, Lalapan",Paket BBQ hemat,ACTIVE
+FOOD008,Kambing Guling,CATERING,PER_PACKAGE,3500000,1 Ekor Kambing,-,-,"Acar, Sambal Kecap, Lalapan",Paket kambing guling,ACTIVE

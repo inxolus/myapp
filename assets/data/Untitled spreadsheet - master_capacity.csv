@@ -1,0 +1,11 @@
+unit_code,unit_name,normal_capacity,max_extra_bed,max_occupancy
+V001,Room 1,2,3,5
+V002,Room 2,2,3,5
+V003,Room 3,2,6,8
+V004,Room 4,2,6,8
+V005,Room 5,4,3,7
+V006,Room 6,4,3,7
+V007,Room 7,2,3,5
+V008,Room 8,5,4,9
+V009,Villa 9,6,9,15
+V010,Villa 10,8,12,20

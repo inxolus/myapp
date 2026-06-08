@@ -1,0 +1,16 @@
+unit_code,unit_name,floor_name,bed_configuration,description
+V001,Room 1,Lantai 1,1 King Bed,Kapasitas normal 2 orang
+V002,Room 2,Lantai 1,1 King Bed,Kapasitas normal 2 orang
+V003,Room 3,Lantai 1,1 King Bed,Kapasitas normal 2 orang
+V004,Room 4,Lantai 1,1 King Bed,Kapasitas normal 2 orang
+V005,Room 5,Lantai 1,1 King Bed,Lantai utama
+V005,Room 5,Lantai 2,1 Single Bed,Lantai atas
+V006,Room 6,Lantai 1,1 King Bed,Lantai utama
+V006,Room 6,Lantai 2,1 Single Bed,Lantai atas
+V007,Room 7,Lantai 1,1 King Bed,Kapasitas normal 2 orang
+V008,Room 8,Lantai 1,1 King Bed,Lantai utama
+V008,Room 8,Lantai 2,1 King Bed,Lantai atas
+V009,Villa 9,Lantai 1,1 King Bed,Lantai bawah
+V009,Villa 9,Lantai 2,1 King Bed + 2 Single Bed,Lantai atas
+V010,Villa 10,Lantai 1,1 King Bed + 1 Single Bed,Lantai bawah
+V010,Villa 10,Lantai 2,2 King Bed + 2 Single Bed,Lantai atas

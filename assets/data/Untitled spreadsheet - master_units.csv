@@ -1,0 +1,12 @@
+unit_code,unit_name,category,unit_type,floor_count,normal_capacity,breakfast_included,max_extra_bed,unit_price,description,status
+V001,Room 1,ACCOMMODATION,ROOM,1,2,2,3,600000,"1 bed besar, TV, AC, water heater, toilet, wifi",ACTIVE
+V002,Room 2,ACCOMMODATION,ROOM,1,2,2,3,600000,"1 bed besar, TV, AC, water heater, toilet, wifi",ACTIVE
+V003,Room 3,ACCOMMODATION,ROOM,1,2,2,6,500000,"1 bed besar, TV, AC, water heater, toilet, wifi",ACTIVE
+V004,Room 4,ACCOMMODATION,ROOM,1,2,2,6,500000,"1 bed besar, TV, AC, water heater, toilet, wifi",ACTIVE
+V005,Room 5,ACCOMMODATION,ROOM,2,4,4,3,900000,"Lt1 bed besar, Lt2 single bed, TV, AC, water heater, wifi, kipas angin",ACTIVE
+V006,Room 6,ACCOMMODATION,ROOM,2,4,4,3,900000,"Lt1 bed besar, Lt2 single bed, TV, AC, water heater, wifi, kipas angin",ACTIVE
+V007,Room 7,ACCOMMODATION,ROOM,1,2,2,3,600000,"1 bed besar, TV, AC, water heater, toilet, wifi",ACTIVE
+V008,Room 8,ACCOMMODATION,ROOM,2,5,5,4,1400000,"2 bed besar, TV, AC, water heater, wifi, kipas angin, toilet dalam & luar",ACTIVE
+V009,Villa 9,ACCOMMODATION,VILLA,2,6,6,9,2200000,"Lt1 1 bed besar, Lt2 1 bed besar + 2 single bed, ruang tamu, sofa, dapur mini, AC, TV, kulkas, dispenser, wifi, 2 kamar mandi water heater",ACTIVE
+V010,Villa 10,ACCOMMODATION,VILLA,2,8,8,12,3300000,"Lt1 1 bed besar + 1 single bed, Lt2 2 bed besar + 2 single bed, ruang tamu, sofa, dapur mini, TV, 2 AC, kulkas, dispenser, wifi, 3 kamar mandi water heater",ACTIVE
+A001,Aula,VENUE,HALL,1,90,0,0,3000000,"Ukuran 8x16 meter, kapasitas 90 orang, meja kursi, panggung, podium, sound system, infocus, mushola, 3 toilet",ACTIVE

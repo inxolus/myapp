@@ -1,0 +1,7 @@
+status_code,status_name
+RS001,Pending
+RS002,Confirmed
+RS003,Checked In
+RS004,Checked Out
+RS005,Cancelled
+RS006,No Show

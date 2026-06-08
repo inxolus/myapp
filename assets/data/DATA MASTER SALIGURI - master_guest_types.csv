@@ -1,0 +1,6 @@
+guest_type_code,guest_type_name,description
+GT001,Regular,Tamu umum
+GT002,Corporate,Instansi atau perusahaan
+GT003,Wedding,Tamu paket wedding
+GT004,Family,Liburan keluarga
+GT005,Group,Rombongan besar

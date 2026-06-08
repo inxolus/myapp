@@ -1,0 +1,5 @@
+status_code,status_name
+RM001,Available
+RM002,Occupied
+RM003,Maintenance
+RM004,Blocked

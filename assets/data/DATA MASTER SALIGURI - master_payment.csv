@@ -1,0 +1,6 @@
+payment_method_code,payment_method_name,status
+PM001,Cash,ACTIVE
+PM002,Transfer BCA,ACTIVE
+PM003,Transfer BRI,ACTIVE
+PM004,Transfer Mandiri,ACTIVE
+PM005,QRIS,ACTIVE
