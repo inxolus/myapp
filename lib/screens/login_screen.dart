@@ -28,18 +28,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _initDb() async {
     try {
-      await DatabaseHelper().database;
+      final db = DatabaseHelper();
+      await db.database;
       if (mounted) setState(() => _isLoading = false);
-    } catch (e) {
+    } catch (e, stack) {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _error = 'Database error: \$e';
+          _error = 'Database Error:\n$e\n\n$stack';
         });
       }
     }
   }
-
   Future<void> _login() async {
     final pin = _pinController.text.trim();
     if (pin.length != 4) {
