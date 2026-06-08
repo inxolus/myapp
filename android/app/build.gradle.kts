@@ -24,8 +24,8 @@ android {
         applicationId = "com.saliguri.app"
         minSdk = flutter.minSdkVersion
         targetSdk = 36          // Android 14 compatible
-        versionCode = flutter.versionCode().toInt()
-        versionName = flutter.versionName()
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
         
         // Native library untuk ARM64 + ARM32
         ndk {

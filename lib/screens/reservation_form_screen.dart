@@ -16,12 +16,16 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _notesController = TextEditingController();
-  final _adultController = TextEditingController(text: '2');
-  final _childController = TextEditingController(text: '0');
 
-  // State
+  // Guest counts (default 2 adults, 0 children)
+  int _adultCount = 2;
+  int _childCount = 0;
+
+  // Dates
   DateTime _checkIn = DateTime.now();
   DateTime _checkOut = DateTime.now().add(const Duration(days: 1));
+
+  // Selections
   GuestType? _selectedGuestType;
   PaymentMethod? _selectedPayment;
   String _statusCode = AppConstants.statusConfirmed;
@@ -29,7 +33,7 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
   // Multi-unit selection
   final List<SelectedUnit> _selectedUnits = [];
 
-  // Services & Foods
+  // Services & Foods (chip-only)
   final List<SelectedService> _selectedServices = [];
   final List<SelectedFood> _selectedFoods = [];
 
@@ -57,8 +61,6 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _notesController.dispose();
-    _adultController.dispose();
-    _childController.dispose();
     super.dispose();
   }
 
@@ -97,10 +99,25 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
 
   int get _extraBedPrice => _extraBedRule?.valueAsInt ?? 100000;
 
+  int get _totalGuests => _adultCount + _childCount;
+
+  int get _maxCapacity {
+    int max = 0;
+    for (final su in _selectedUnits) {
+      if (su.unit != null && su.unit!.maxOccupancy > max) {
+        max = su.unit!.maxOccupancy;
+      }
+    }
+    return max;
+  }
+
+  bool get _isOverCapacity => _selectedUnits.isNotEmpty && _totalGuests > _maxCapacity;
+
   void _calculatePrice() {
     int total = 0;
+    final nights = _checkOut.difference(_checkIn).inDays;
+
     for (final su in _selectedUnits) {
-      final nights = _checkOut.difference(_checkIn).inDays;
       if (nights > 0 && su.unit != null) {
         final base = su.unit!.unitPrice * nights;
         final extra = su.extraBedCount * _extraBedPrice * nights;
@@ -108,12 +125,14 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
         total += su.subtotal;
       }
     }
+
     for (final svc in _selectedServices) {
       total += svc.subtotal;
     }
     for (final food in _selectedFoods) {
       total += food.subtotal;
     }
+
     setState(() => _grandTotal = total);
   }
 
@@ -130,16 +149,19 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
     _calculatePrice();
   }
 
-  void _updateUnitExtraBed(int index, int count) {
+  void _updateUnitExtraBed(int index, int delta) {
     if (index < 0 || index >= _selectedUnits.length) return;
     final unit = _selectedUnits[index].unit;
-    if (unit != null && count > unit.maxExtraBed) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Max extra bed untuk ${unit.unitName}: ${unit.maxExtraBed}')),
-      );
+    if (unit == null) return;
+
+    final newCount = _selectedUnits[index].extraBedCount + delta;
+    if (newCount < 0) return;
+    if (newCount > unit.maxExtraBed) {
+      _showSnack('Max extra bed untuk ${unit.unitName}: ${unit.maxExtraBed}');
       return;
     }
-    setState(() => _selectedUnits[index].extraBedCount = count);
+
+    setState(() => _selectedUnits[index].extraBedCount = newCount);
     _calculatePrice();
   }
 
@@ -163,6 +185,17 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
     _calculatePrice();
   }
 
+  void _updateServiceQty(int index, int delta) {
+    if (index < 0 || index >= _selectedServices.length) return;
+    final newQty = _selectedServices[index].quantity + delta;
+    if (newQty <= 0) {
+      _removeService(index);
+      return;
+    }
+    setState(() => _selectedServices[index].quantity = newQty);
+    _calculatePrice();
+  }
+
   void _addFood(FoodPackage food) {
     final existing = _selectedFoods.indexWhere((f) => f.foodCode == food.serviceCode);
     if (existing >= 0) {
@@ -183,38 +216,41 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
     _calculatePrice();
   }
 
+  void _updateFoodQty(int index, int delta) {
+    if (index < 0 || index >= _selectedFoods.length) return;
+    final newQty = _selectedFoods[index].paxCount + delta;
+    if (newQty <= 0) {
+      _removeFood(index);
+      return;
+    }
+    setState(() => _selectedFoods[index].paxCount = newQty);
+    _calculatePrice();
+  }
+
   Future<void> _saveReservation() async {
     // Validation
     final nameError = Validators.required(_nameController.text, 'Nama tamu');
     if (nameError != null) {
-      _showError(nameError);
+      _showSnack(nameError);
       return;
     }
     final phoneError = Validators.phone(_phoneController.text);
     if (phoneError != null) {
-      _showError(phoneError);
+      _showSnack(phoneError);
       return;
     }
     if (_selectedUnits.isEmpty) {
-      _showError('Pilih minimal 1 unit');
+      _showSnack('Pilih minimal 1 unit');
       return;
     }
     final dateError = Validators.dateRange(_checkIn, _checkOut);
     if (dateError != null) {
-      _showError(dateError);
+      _showSnack(dateError);
       return;
     }
-
-    final adults = int.tryParse(_adultController.text.trim()) ?? 0;
-    final children = int.tryParse(_childController.text.trim()) ?? 0;
-    final totalGuests = adults + children;
-
-    for (final su in _selectedUnits) {
-      if (su.unit == null) continue;
-      if (totalGuests > su.unit!.maxOccupancy) {
-        _showError('Total tamu ($totalGuests) melebihi kapasitas ${su.unit!.unitName} (${su.unit!.maxOccupancy})');
-        return;
-      }
+    if (_isOverCapacity) {
+      _showSnack('Total tamu ($_totalGuests) melebihi kapasitas maksimal $_maxCapacity orang');
+      return;
     }
 
     final checkInStr = Formatters.dbDate(_checkIn);
@@ -224,7 +260,7 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
     final unitCodes = _selectedUnits.where((u) => u.unit != null).map((u) => u.unit!.unitCode).toList();
     final available = await DatabaseHelper().areUnitsAvailable(unitCodes, checkInStr, checkOutStr);
     if (!available) {
-      _showError('Salah satu unit sudah terbooking pada tanggal tersebut');
+      _showSnack('Salah satu unit sudah terbooking pada tanggal tersebut');
       return;
     }
 
@@ -290,8 +326,8 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
         guestId: guestId,
         checkInDate: checkInStr,
         checkOutDate: checkOutStr,
-        adultCount: adults,
-        childCount: children,
+        adultCount: _adultCount,
+        childCount: _childCount,
         statusCode: _statusCode,
         paymentMethodCode: _selectedPayment?.paymentMethodCode,
         grandTotal: _grandTotal,
@@ -302,9 +338,7 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
       await db.createReservation(reservation, resUnits, resServices, resFoods);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Reservasi berhasil dibuat!')),
-        );
+        _showSnack('Reservasi berhasil dibuat!', isError: false);
         Navigator.pop(context);
       }
     } catch (e) {
@@ -317,9 +351,56 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
     }
   }
 
-  void _showError(String msg) {
+  void _showSnack(String msg, {bool isError = true}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontSize: 16)),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _changeDate(bool isCheckIn) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: isCheckIn ? _checkIn : _checkOut,
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
+    );
+    if (picked == null) return;
+
+    setState(() {
+      if (isCheckIn) {
+        _checkIn = picked;
+        if (!_checkOut.isAfter(_checkIn)) {
+          _checkOut = _checkIn.add(const Duration(days: 1));
+        }
+      } else {
+        _checkOut = picked;
+      }
+    });
+    _calculatePrice();
+  }
+
+  Widget _buildStepper(String label, int value, VoidCallback onDec, VoidCallback onInc) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.remove_circle, color: Colors.orange, size: 32),
+          onPressed: onDec,
+        ),
+        Container(
+          width: 40,
+          alignment: Alignment.center,
+          child: Text('$value', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        ),
+        IconButton(
+          icon: const Icon(Icons.add_circle, color: Colors.green, size: 32),
+          onPressed: onInc,
+        ),
+      ],
     );
   }
 
@@ -331,12 +412,12 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reservasi Baru'),
+        title: const Text('Reservasi Baru', style: TextStyle(fontSize: 22)),
         actions: [
           TextButton.icon(
             onPressed: _saveReservation,
             icon: const Icon(Icons.save, color: Colors.white),
-            label: const Text('SIMPAN', style: TextStyle(color: Colors.white)),
+            label: const Text('SIMPAN', style: TextStyle(color: Colors.white, fontSize: 16)),
           ),
         ],
       ),
@@ -347,347 +428,425 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
           children: [
             if (_error.isNotEmpty)
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
                   color: Colors.red.shade100,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red),
                 ),
-                child: Text(_error, style: const TextStyle(color: Colors.red)),
+                child: Text(_error, style: const TextStyle(color: Colors.red, fontSize: 16)),
               ),
 
-            // Guest Info
-            _buildSectionTitle('Data Tamu'),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nama Tamu *',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                      labelText: 'Telepon / WhatsApp *',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<GuestType>(
-              value: _selectedGuestType,
-              decoration: const InputDecoration(
-                labelText: 'Tipe Tamu',
-                border: OutlineInputBorder(),
-              ),
-              items: _guestTypes.map((gt) {
-                return DropdownMenuItem(value: gt, child: Text(gt.guestTypeName));
-              }).toList(),
-              onChanged: (v) => setState(() => _selectedGuestType = v),
-            ),
-            const SizedBox(height: 24),
-
-            // Unit Selection
-            _buildSectionTitle('Pilih Unit'),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: _allUnits.map((unit) {
-                final isSelected = _selectedUnits.any((u) => u.unit?.unitCode == unit.unitCode);
-                return InkWell(
-                  onTap: () => isSelected ? null : _addUnit(unit),
-                  child: Container(
-                    width: 200,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade100,
-                      border: Border.all(
-                        color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade300,
-                        width: 2,
+            // ===== SECTION 1: DATA TAMU =====
+            _buildSectionHeader('1. Data Tamu', Icons.person),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nama Tamu *',
+                        hintText: 'Contoh: Budi Santoso',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person_outline),
                       ),
-                      borderRadius: BorderRadius.circular(8),
+                      style: const TextStyle(fontSize: 18),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Telepon / WhatsApp *',
+                        hintText: '08123456789',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.phone),
+                      ),
+                      style: const TextStyle(fontSize: 18),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<GuestType>(
+                      value: _selectedGuestType,
+                      decoration: const InputDecoration(
+                        labelText: 'Tipe Tamu',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.category),
+                      ),
+                      items: _guestTypes.map((gt) {
+                        return DropdownMenuItem(value: gt, child: Text(gt.guestTypeName, style: const TextStyle(fontSize: 16)));
+                      }).toList(),
+                      onChanged: (v) => setState(() => _selectedGuestType = v),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ===== SECTION 2: PILIH UNIT =====
+            _buildSectionHeader('2. Pilih Unit', Icons.hotel),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Klik unit untuk menambahkan:', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: _allUnits.map((unit) {
+                        final isSelected = _selectedUnits.any((u) => u.unit?.unitCode == unit.unitCode);
+                        return InkWell(
+                          onTap: () => isSelected ? null : _addUnit(unit),
+                          child: Container(
+                            width: 160,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade100,
+                              border: Border.all(
+                                color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade300,
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  unit.unitName,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: isSelected ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                                Text(
+                                  Formatters.currency(unit.unitPrice),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: isSelected ? Colors.white70 : Colors.grey.shade700,
+                                  ),
+                                ),
+                                Text(
+                                  'Kap: ${unit.normalCapacity} | Max: ${unit.maxOccupancy}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isSelected ? Colors.white70 : Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    // Selected units with stepper
+                    if (_selectedUnits.isNotEmpty) ...[
+                      const Divider(),
+                      const Text('Unit Terpilih:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 8),
+                      ..._selectedUnits.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final su = entry.value;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      su.unit?.unitName ?? '',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                    ),
+                                    Text(
+                                      'Subtotal: ${Formatters.currency(su.subtotal)}',
+                                      style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        const Text('Extra Bed: ', style: TextStyle(fontSize: 14)),
+                                        _buildStepper(
+                                          '',
+                                          su.extraBedCount,
+                                          () => _updateUnitExtraBed(idx, -1),
+                                          () => _updateUnitExtraBed(idx, 1),
+                                        ),
+                                        Text(' (Rp${Formatters.currency(_extraBedPrice)})', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red, size: 28),
+                                onPressed: () => _removeUnit(idx),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ===== SECTION 3: TANGGAL & TAMU =====
+            _buildSectionHeader('3. Tanggal & Jumlah Tamu', Icons.calendar_today),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          unit.unitName,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
+                        Expanded(
+                          child: _buildDateCard('Check-In', _checkIn, () => _changeDate(true)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildDateCard('Check-Out', _checkOut, () => _changeDate(false)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${_checkOut.difference(_checkIn).inDays} malam',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Column(
+                          children: [
+                            const Text('Dewasa', style: TextStyle(fontSize: 16)),
+                            _buildStepper(
+                              '',
+                              _adultCount,
+                              () => setState(() { if (_adultCount > 0) _adultCount--; _calculatePrice(); }),
+                              () => setState(() { _adultCount++; _calculatePrice(); }),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            const Text('Anak', style: TextStyle(fontSize: 16)),
+                            _buildStepper(
+                              '',
+                              _childCount,
+                              () => setState(() { if (_childCount > 0) _childCount--; _calculatePrice(); }),
+                              () => setState(() { _childCount++; _calculatePrice(); }),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (_isOverCapacity)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning, color: Colors.red),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '⚠️ Total tamu $_totalGuests melebihi kapasitas maksimal $_maxCapacity orang!',
+                                style: const TextStyle(color: Colors.red, fontSize: 14),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ===== SECTION 4: SERVICES =====
+            _buildSectionHeader('4. Services (Opsional)', Icons.room_service),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Klik untuk menambahkan:', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _services.map((svc) {
+                        final selected = _selectedServices.where((s) => s.serviceCode == svc.serviceCode).toList();
+                        final qty = selected.isNotEmpty ? selected.first.quantity : 0;
+                        final isSelected = qty > 0;
+                        return ActionChip(
+                          avatar: isSelected ? CircleAvatar(
+                            backgroundColor: Colors.white,
+                            child: Text('$qty', style: const TextStyle(fontSize: 12, color: Colors.blue)),
+                          ) : null,
+                          label: Text('${svc.serviceName}\n${Formatters.currency(svc.unitPrice ?? 0)}', textAlign: TextAlign.center),
+                          labelStyle: TextStyle(
+                            fontSize: 13,
                             color: isSelected ? Colors.white : Colors.black,
                           ),
-                        ),
-                        Text(
-                          Formatters.currency(unit.unitPrice),
-                          style: TextStyle(
-                            color: isSelected ? Colors.white70 : Colors.grey,
+                          backgroundColor: isSelected ? Colors.blue : Colors.grey.shade200,
+                          onPressed: () => _addService(svc),
+                        );
+                      }).toList(),
+                    ),
+                    // Selected services with stepper
+                    if (_selectedServices.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const Text('Services Terpilih:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ..._selectedServices.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final s = entry.value;
+                        return ListTile(
+                          dense: true,
+                          title: Text(s.serviceName, style: const TextStyle(fontSize: 16)),
+                          subtitle: Text('${Formatters.currency(s.unitPrice)} x ${s.quantity} = ${Formatters.currency(s.subtotal)}'),
+                          trailing: _buildStepper('', s.quantity,
+                            () => _updateServiceQty(idx, -1),
+                            () => _updateServiceQty(idx, 1),
                           ),
-                        ),
-                        Text(
-                          'Kap: ${unit.normalCapacity} | Max: ${unit.maxOccupancy}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isSelected ? Colors.white70 : Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-
-            // Selected Units with extra bed
-            if (_selectedUnits.isNotEmpty) ...[
-              const Text('Unit Terpilih:', style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              ..._selectedUnits.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final su = entry.value;
-                return Card(
-                  child: ListTile(
-                    title: Text(su.unit?.unitName ?? ''),
-                    subtitle: Text('Subtotal: ${Formatters.currency(su.subtotal)}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 80,
-                          child: TextField(
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: 'Extra Bed',
-                              helperText: 'Rp$_extraBedPrice/bed',
-                            ),
-                            controller: TextEditingController(text: '${su.extraBedCount}'),
-                            onChanged: (v) => _updateUnitExtraBed(idx, int.tryParse(v) ?? 0),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _removeUnit(idx),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-              const SizedBox(height: 16),
-            ],
-
-            // Dates
-            _buildSectionTitle('Tanggal'),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildDatePicker('Check-In', _checkIn, (date) {
-                    setState(() => _checkIn = date);
-                    if (!_checkOut.isAfter(_checkIn)) {
-                      setState(() => _checkOut = _checkIn.add(const Duration(days: 1)));
-                    }
-                    _calculatePrice();
-                  }),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildDatePicker('Check-Out', _checkOut, (date) {
-                    setState(() => _checkOut = date);
-                    _calculatePrice();
-                  }),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Occupancy
-            _buildSectionTitle('Jumlah Tamu'),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _adultController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Dewasa',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextField(
-                    controller: _childController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Anak',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Services
-            _buildSectionTitle('Services'),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _services.map((svc) {
-                final selected = _selectedServices.where((s) => s.serviceCode == svc.serviceCode).toList();
-                final qty = selected.isNotEmpty ? selected.first.quantity : 0;
-                return ActionChip(
-                  avatar: qty > 0 ? CircleAvatar(child: Text('$qty')) : null,
-                  label: Text('${svc.serviceName} ${Formatters.currency(svc.unitPrice ?? 0)}'),
-                  onPressed: () => _addService(svc),
-                  backgroundColor: qty > 0 ? Colors.blue.shade100 : null,
-                );
-              }).toList(),
-            ),
-            if (_selectedServices.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              ..._selectedServices.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final s = entry.value;
-                return ListTile(
-                  dense: true,
-                  title: Text(s.serviceName),
-                  subtitle: Text('${s.quantity} x ${Formatters.currency(s.unitPrice)}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle, color: Colors.orange),
-                        onPressed: () {
-                          if (s.quantity > 1) {
-                            setState(() => s.quantity--);
-                          } else {
-                            _removeService(idx);
-                          }
-                          _calculatePrice();
-                        },
-                      ),
-                      Text('${s.quantity}'),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle, color: Colors.green),
-                        onPressed: () {
-                          setState(() => s.quantity++);
-                          _calculatePrice();
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _removeService(idx),
-                      ),
+                        );
+                      }),
                     ],
-                  ),
-                );
-              }),
-            ],
-            const SizedBox(height: 24),
-
-            // Food Packages
-            _buildSectionTitle('Paket Makanan'),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _foodPackages.map((food) {
-                final selected = _selectedFoods.where((f) => f.foodCode == food.serviceCode).toList();
-                final qty = selected.isNotEmpty ? selected.first.paxCount : 0;
-                return ActionChip(
-                  avatar: qty > 0 ? CircleAvatar(child: Text('$qty')) : null,
-                  label: Text('${food.serviceName} ${Formatters.currency(food.unitPrice)}'),
-                  onPressed: () => _addFood(food),
-                  backgroundColor: qty > 0 ? Colors.green.shade100 : null,
-                );
-              }).toList(),
+                  ],
+                ),
+              ),
             ),
-            if (_selectedFoods.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              ..._selectedFoods.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final f = entry.value;
-                return ListTile(
-                  dense: true,
-                  title: Text(f.foodName),
-                  subtitle: Text('${f.paxCount} pax x ${Formatters.currency(f.unitPrice)}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle, color: Colors.orange),
-                        onPressed: () {
-                          if (f.paxCount > 1) {
-                            setState(() => f.paxCount--);
-                          } else {
-                            _removeFood(idx);
-                          }
-                          _calculatePrice();
-                        },
-                      ),
-                      Text('${f.paxCount}'),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle, color: Colors.green),
-                        onPressed: () {
-                          setState(() => f.paxCount++);
-                          _calculatePrice();
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _removeFood(idx),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ],
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // Payment & Status
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<PaymentMethod>(
-                    value: _selectedPayment,
-                    decoration: const InputDecoration(
-                      labelText: 'Metode Pembayaran',
-                      border: OutlineInputBorder(),
+            // ===== SECTION 5: FOOD PACKAGES =====
+            _buildSectionHeader('5. Paket Makanan (Opsional)', Icons.restaurant),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Klik untuk menambahkan:', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _foodPackages.map((food) {
+                        final selected = _selectedFoods.where((f) => f.foodCode == food.serviceCode).toList();
+                        final qty = selected.isNotEmpty ? selected.first.paxCount : 0;
+                        final isSelected = qty > 0;
+                        return ActionChip(
+                          avatar: isSelected ? CircleAvatar(
+                            backgroundColor: Colors.white,
+                            child: Text('$qty', style: const TextStyle(fontSize: 12, color: Colors.green)),
+                          ) : null,
+                          label: Text('${food.serviceName}\n${Formatters.currency(food.unitPrice)}', textAlign: TextAlign.center),
+                          labelStyle: TextStyle(
+                            fontSize: 13,
+                            color: isSelected ? Colors.white : Colors.black,
+                          ),
+                          backgroundColor: isSelected ? Colors.green : Colors.grey.shade200,
+                          onPressed: () => _addFood(food),
+                        );
+                      }).toList(),
                     ),
-                    items: _paymentMethods.map((pm) {
-                      return DropdownMenuItem(value: pm, child: Text(pm.paymentMethodName));
-                    }).toList(),
-                    onChanged: (v) => setState(() => _selectedPayment = v),
-                  ),
+                    if (_selectedFoods.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const Text('Makanan Terpilih:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ..._selectedFoods.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final f = entry.value;
+                        return ListTile(
+                          dense: true,
+                          title: Text(f.foodName, style: const TextStyle(fontSize: 16)),
+                          subtitle: Text('${Formatters.currency(f.unitPrice)} x ${f.paxCount} pax = ${Formatters.currency(f.subtotal)}'),
+                          trailing: _buildStepper('', f.paxCount,
+                            () => _updateFoodQty(idx, -1),
+                            () => _updateFoodQty(idx, 1),
+                          ),
+                        );
+                      }),
+                    ],
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _statusCode,
-                    decoration: const InputDecoration(
-                      labelText: 'Status',
-                      border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // ===== SECTION 6: PEMBAYARAN & STATUS =====
+            _buildSectionHeader('6. Pembayaran & Status', Icons.payment),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<PaymentMethod>(
+                        value: _selectedPayment,
+                        decoration: const InputDecoration(
+                          labelText: 'Metode Pembayaran',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _paymentMethods.map((pm) {
+                          return DropdownMenuItem(value: pm, child: Text(pm.paymentMethodName, style: const TextStyle(fontSize: 16)));
+                        }).toList(),
+                        onChanged: (v) => setState(() => _selectedPayment = v),
+                      ),
                     ),
-                    items: _statuses.where((s) => [
-                      AppConstants.statusPending,
-                      AppConstants.statusConfirmed,
-                    ].contains(s.statusCode)).map((s) {
-                      return DropdownMenuItem(value: s.statusCode, child: Text(s.statusName));
-                    }).toList(),
-                    onChanged: (v) => setState(() => _statusCode = v!),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _statusCode,
+                        decoration: const InputDecoration(
+                          labelText: 'Status',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _statuses.where((s) => [
+                          AppConstants.statusPending,
+                          AppConstants.statusConfirmed,
+                        ].contains(s.statusCode)).map((s) {
+                          return DropdownMenuItem(value: s.statusCode, child: Text(s.statusName, style: const TextStyle(fontSize: 16)));
+                        }).toList(),
+                        onChanged: (v) => setState(() => _statusCode = v!),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -695,91 +854,103 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
               maxLines: 2,
               decoration: const InputDecoration(
                 labelText: 'Catatan',
+                hintText: 'Contoh: Tamu minta extra pillow',
                 border: OutlineInputBorder(),
               ),
+              style: const TextStyle(fontSize: 16),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
-            // Total Price
+            // ===== TOTAL & SAVE =====
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.green.shade50,
-                border: Border.all(color: Colors.green),
-                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green, width: 2),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
                 children: [
-                  const Text(
-                    'Total Harga:',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total Harga:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      Text(
+                        Formatters.currency(_grandTotal),
+                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 4),
                   Text(
-                    Formatters.currency(_grandTotal),
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
+                    '${_checkOut.difference(_checkIn).inDays} malam • ${_totalGuests} tamu • ${_selectedUnits.length} unit',
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 32),
-
-            // Save Button
+            const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
-              height: 56,
+              height: 60,
               child: ElevatedButton.icon(
                 onPressed: _saveReservation,
-                icon: const Icon(Icons.save),
-                label: const Text('SIMPAN RESERVASI', style: TextStyle(fontSize: 18)),
+                icon: const Icon(Icons.save, size: 28),
+                label: const Text('SIMPAN RESERVASI', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1565C0),
+                  foregroundColor: Colors.white,
+                ),
               ),
             ),
+            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionHeader(String title, IconData icon) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1565C0)),
+      padding: const EdgeInsets.only(bottom: 12, left: 4),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFF1565C0), size: 24),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1565C0)),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildDatePicker(String label, DateTime date, ValueChanged<DateTime> onChanged) {
+  Widget _buildDateCard(String label, DateTime date, VoidCallback onTap) {
     return InkWell(
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: date,
-          firstDate: DateTime.now().subtract(const Duration(days: 365)),
-          lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
-        );
-        if (picked != null) onChanged(picked);
-      },
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(
-          Formatters.displayDateOnly(date),
-          style: const TextStyle(fontSize: 16),
+        child: Column(
+          children: [
+            Text(label, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            Text(
+              Formatters.displayDateOnly(date),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-// Helper classes for form state
+// Helper classes
 class SelectedUnit {
   Unit? unit;
   int extraBedCount;
