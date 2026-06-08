@@ -3,7 +3,7 @@ name: Build APK
 on:
   push:
     branches: [main]
-
+workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,5 +16,5 @@ jobs:
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
-          name: saliguri-apk
+          name: saliguri-management-apk
           path: build/app/outputs/flutter-apk/app-release.apk
