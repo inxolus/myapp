@@ -383,8 +383,8 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<GuestType>(
-              initialValue: _selectedGuestType,
+            DropdownButtonFormField<<GuestType>(
+              value: _selectedGuestType,
               decoration: const InputDecoration(
                 labelText: 'Tipe Tamu',
                 border: OutlineInputBorder(),
@@ -659,7 +659,7 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<PaymentMethod>(
-                    initialValue: _selectedPayment,
+                    value: _selectedPayment,
                     decoration: const InputDecoration(
                       labelText: 'Metode Pembayaran',
                       border: OutlineInputBorder(),
@@ -673,7 +673,7 @@ class _ReservationFormScreenState extends State<ReservationFormScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    initialValue: _statusCode,
+                    value: _statusCode,
                     decoration: const InputDecoration(
                       labelText: 'Status',
                       border: OutlineInputBorder(),
